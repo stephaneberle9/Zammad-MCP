@@ -57,6 +57,7 @@ mise run changelog-bump <version> # Prepare release
 
 - `mcp_zammad/server.py` - FastMCP server with 19 tools, 4 resources, 3 prompts
 - `mcp_zammad/client.py` - Zammad API wrapper with authentication & validation
+- `mcp_zammad/config.py` - Transport and OAuth configuration (`TransportConfig`, `AuthConfig`, `OAuthProxy`)
 - `mcp_zammad/models.py` - Pydantic models for type safety
 
 **Response Formats:**
@@ -74,6 +75,7 @@ This unification follows MCP best practices for consistent tool output.
 - Sentinel pattern (`_UNINITIALIZED`) for type safety
 - Type narrowing with `get_zammad_client()` helper
 - Async-first architecture
+- Per-request `ZammadClient` when OAuth is enabled (Zammad Doorkeeper token forwarding)
 
 **FastMCP 3 Migration Rules (do NOT revert):**
 
@@ -91,8 +93,19 @@ Required environment variables (see `.env.example`):
 
 ```bash
 ZAMMAD_URL=https://instance.zammad.com/api/v1  # Must include /api/v1
-ZAMMAD_HTTP_TOKEN=your-api-token                # Recommended auth method
+ZAMMAD_HTTP_TOKEN=your-api-token                # Recommended for single-user
 ```
+
+**OAuth via Zammad Doorkeeper (alternative — for multi-user HTTP deployments):**
+
+```bash
+MCP_AUTH_CLIENT_ID=...                          # Zammad OAuth app client ID
+MCP_AUTH_CLIENT_SECRET=...                      # Zammad OAuth app client secret
+MCP_AUTH_BASE_URL=http://localhost:8000          # This MCP server's public URL
+# OAuth endpoints (/oauth/authorize, /oauth/token) derived from ZAMMAD_URL
+```
+
+When auth env vars are set, static Zammad credentials are not required.
 
 ---
 
@@ -169,6 +182,7 @@ Optional[str]
 - Input validation via Pydantic
 - Base64 validation for attachments
 - Filename sanitization (path traversal prevention)
+- OAuth authentication via Zammad's Doorkeeper (per-user token forwarding)
 
 **Not Implemented:**
 

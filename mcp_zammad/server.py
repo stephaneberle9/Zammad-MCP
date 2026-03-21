@@ -14,12 +14,14 @@ from typing import Any, NoReturn, Protocol, TypeVar
 import requests  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_access_token
 from mcp.types import ToolAnnotations
 from pydantic import ValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from .client import ZammadClient
+from .config import AuthConfig
 from .models import (
     Article,
     ArticleCreate,
@@ -794,15 +796,41 @@ class ZammadMCPServer:
             port: Deprecated. Pass port to mcp.run() instead.
         """
         if host is not None or port is not None:
-            logger.warning(
-                "ZammadMCPServer(host=..., port=...) is deprecated; pass host/port to mcp.run(...) instead."
-            )
+            logger.warning("ZammadMCPServer(host=..., port=...) is deprecated; pass host/port to mcp.run(...) instead.")
         self.client: ZammadClient | None = None
-        # Create FastMCP with lifespan configured
-        self.mcp = FastMCP("zammad_mcp", lifespan=self._create_lifespan())
+
+        # Load .env early so AuthConfig.from_env() sees the variables
+        self._load_env()
+
+        # Configure authentication from environment
+        self.auth_config = AuthConfig.from_env()
+        auth_provider = self.auth_config.create_auth_provider()
+
+        # Create FastMCP with lifespan and optional auth configured
+        self.mcp = FastMCP("zammad_mcp", lifespan=self._create_lifespan(), auth=auth_provider)
         self._setup_tools()
         self._setup_resources()
         self._setup_prompts()
+
+    @staticmethod
+    def _load_env() -> None:
+        """Load environment variables from .env files."""
+        # First, try to load from current working directory
+        cwd_env = Path.cwd() / ".env"
+        if cwd_env.exists():
+            load_dotenv(cwd_env)
+            logger.info("Loaded environment from %s", cwd_env)
+
+        # Then, try to load from .envrc if it exists and convert to .env format
+        envrc_path = Path.cwd() / ".envrc"
+        if envrc_path.exists() and not os.environ.get("ZAMMAD_URL"):
+            # If .envrc exists but env vars aren't set, warn the user
+            logger.warning(
+                "Found .envrc but environment variables not loaded. Consider using direnv or creating a .env file"
+            )
+
+        # Also support loading from parent directories (for when running from subdirs)
+        load_dotenv()
 
     def _create_lifespan(self) -> Any:
         """Create the lifespan context manager for the server."""
@@ -821,30 +849,34 @@ class ZammadMCPServer:
         return lifespan
 
     def get_client(self) -> ZammadClient:
-        """Get the Zammad client, ensuring it's initialized."""
+        """Get the Zammad client, ensuring it's initialized.
+
+        When auth is enabled, creates a per-request client using the
+        authenticated user's upstream access token.  When auth is disabled,
+        returns the shared static client.
+        """
+        if self.auth_config.enabled:
+            return self._get_authenticated_client()
         if not self.client:
             raise RuntimeError("Zammad client not initialized")
         return self.client
 
-    async def initialize(self) -> None:
-        """Initialize the Zammad client on server startup."""
-        # Load environment variables from .env files
-        # First, try to load from current working directory
-        cwd_env = Path.cwd() / ".env"
-        if cwd_env.exists():
-            load_dotenv(cwd_env)
-            logger.info("Loaded environment from %s", cwd_env)
-
-        # Then, try to load from .envrc if it exists and convert to .env format
-        envrc_path = Path.cwd() / ".envrc"
-        if envrc_path.exists() and not os.environ.get("ZAMMAD_URL"):
-            # If .envrc exists but env vars aren't set, warn the user
-            logger.warning(
-                "Found .envrc but environment variables not loaded. Consider using direnv or creating a .env file"
+    def _get_authenticated_client(self) -> ZammadClient:
+        """Create a ZammadClient using the current request's upstream token."""
+        access_token = get_access_token()
+        if access_token is None:
+            raise RuntimeError(
+                "No access token in request context. "
+                "Ensure the MCP client authenticates via the configured auth provider."
             )
 
-        # Also support loading from parent directories (for when running from subdirs)
-        load_dotenv()
+        return ZammadClient(oauth2_token=access_token.token)
+
+    async def initialize(self) -> None:
+        """Initialize the Zammad client on server startup."""
+        if self.auth_config.enabled:
+            logger.info("OAuth auth enabled (%s) — clients created per-request", self.auth_config.zammad_base_url)
+            return
 
         try:
             self.client = ZammadClient()
