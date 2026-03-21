@@ -2,8 +2,6 @@
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 import mcp_zammad.__main__ as main_module
 from mcp_zammad.__main__ import main
 
@@ -59,7 +57,7 @@ def test_main_with_http_transport(monkeypatch) -> None:
     with patch("mcp_zammad.__main__.mcp") as mock_mcp:
         main()
 
-        mock_mcp.run.assert_called_once_with(transport="http", host="127.0.0.1", port=8000)
+        mock_mcp.run.assert_called_once_with(transport="http", host="127.0.0.1", port=8000, uvicorn_config=None)
 
 
 def test_main_with_stdio_transport_default(monkeypatch) -> None:
@@ -76,12 +74,13 @@ def test_main_with_stdio_transport_default(monkeypatch) -> None:
         mock_mcp.run.assert_called_once_with()
 
 
-def test_main_validates_http_config(monkeypatch) -> None:
-    """Test main validates HTTP configuration."""
+def test_main_http_defaults_port(monkeypatch) -> None:
+    """Test HTTP transport defaults to port 8000 when MCP_PORT is not set."""
     monkeypatch.setenv("MCP_TRANSPORT", "http")
-    # Don't set port - should fail validation
     monkeypatch.delenv("MCP_PORT", raising=False)
+    monkeypatch.delenv("MCP_HOST", raising=False)
 
-    with pytest.raises(ValueError) as excinfo:
+    with patch("mcp_zammad.__main__.mcp") as mock_mcp:
         main()
-    assert "HTTP transport requires MCP_PORT" in str(excinfo.value)
+
+        mock_mcp.run.assert_called_once_with(transport="http", host="127.0.0.1", port=8000, uvicorn_config=None)

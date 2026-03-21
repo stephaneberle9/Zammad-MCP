@@ -2,8 +2,38 @@
 
 from collections.abc import Callable
 from typing import Any
+from unittest.mock import patch
 
 import pytest
+
+# Auth env vars that must be cleared so the real .env file doesn't
+# interfere with tests that instantiate ZammadMCPServer.
+_DOTENV_VARS = (
+    # Auth vars
+    "MCP_AUTH_CLIENT_ID",
+    "MCP_AUTH_CLIENT_SECRET",
+    "MCP_AUTH_BASE_URL",
+    # Transport vars
+    "MCP_TRANSPORT",
+    "MCP_HOST",
+    "MCP_PORT",
+    "MCP_SSL_CERTFILE",
+    "MCP_SSL_KEYFILE",
+)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_from_dotenv(monkeypatch):
+    """Prevent the real .env file from leaking into tests.
+
+    ZammadMCPServer.__init__ calls _load_env() which would read the
+    developer's .env and pollute the test environment.  We neutralise
+    load_dotenv() and also scrub any auth vars that might already be set.
+    """
+    with patch("mcp_zammad.server.load_dotenv"):
+        for var in _DOTENV_VARS:
+            monkeypatch.delenv(var, raising=False)
+        yield
 
 
 @pytest.fixture
