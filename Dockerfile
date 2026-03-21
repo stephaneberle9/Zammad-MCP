@@ -51,7 +51,7 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 # Add labels for GitHub Container Registry
-LABEL org.opencontainers.image.source="https://github.com/basher83/Zammad-MCP"
+LABEL org.opencontainers.image.source="https://github.com/stephaneberle9/Zammad-MCP"
 LABEL org.opencontainers.image.description="Model Context Protocol server for Zammad ticket system integration"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later"
 
