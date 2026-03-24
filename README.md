@@ -197,7 +197,7 @@ Before configuring the environment variables below, you need to register this MC
    ```bash
    curl -X POST -H "Authorization: Token token=YOUR_ADMIN_TOKEN" \
      -H "Content-Type: application/json" \
-     -d '{"name": "MCP Server", "redirect_uri": "https://localhost:8000/auth/callback"}' \
+     -d '{"name": "MCP Server", "redirect_uri": "https://localhost:8000/auth/callback", "scopes": "full"}' \
      https://your-instance.zammad.com/api/v1/applications
    ```
 
@@ -207,6 +207,10 @@ Before configuring the environment variables below, you need to register this MC
    (see [Transport Configuration](#transport-configuration-optional) below). In production, use the public URL where
    the MCP server is deployed (e.g. `https://mcp.yourdomain.com/auth/callback`).
 
+   > **Important**: The `"scopes": "full"` field is required. Zammad's Doorkeeper
+   > only supports the `full` scope — if the application is created without it,
+   > MCP clients will receive an `invalid_scope` error during the OAuth flow.
+   >
    > **Note**: Zammad enforces HTTPS redirect URIs in production mode.
 
 2. **Retrieve the client ID and secret** (the standard API response hides them):

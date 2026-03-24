@@ -4,7 +4,13 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_zammad.config import AuthConfig, PassthroughTokenVerifier, TransportConfig, TransportType
+from mcp_zammad.config import (
+    ZAMMAD_OAUTH_SCOPES,
+    AuthConfig,
+    PassthroughTokenVerifier,
+    TransportConfig,
+    TransportType,
+)
 
 
 def test_transport_config_defaults() -> None:
@@ -216,7 +222,7 @@ def test_auth_config_create_provider() -> None:
         assert call_kwargs["upstream_client_id"] == "test-id"
         assert call_kwargs["upstream_client_secret"] == "test-secret"
         assert call_kwargs["base_url"] == "http://localhost:8000"
-        assert call_kwargs["valid_scopes"] == ["full"]
+        assert call_kwargs["valid_scopes"] == ZAMMAD_OAUTH_SCOPES
         assert isinstance(call_kwargs["token_verifier"], PassthroughTokenVerifier)
 
 
@@ -229,6 +235,18 @@ def test_auth_config_create_provider_disabled() -> None:
 # --- PassthroughTokenVerifier tests ---
 
 
+def test_passthrough_verifier_declares_full_scope() -> None:
+    """Test PassthroughTokenVerifier declares 'full' as required scope.
+
+    This is critical for OAuthProxy: required_scopes propagates to
+    _default_scope_str, which is assigned to dynamically registered
+    clients during DCR.  Without it, clients get empty scopes and
+    authorization requests for scope 'full' are rejected.
+    """
+    verifier = PassthroughTokenVerifier()
+    assert verifier.required_scopes == ZAMMAD_OAUTH_SCOPES
+
+
 @pytest.mark.asyncio
 async def test_passthrough_verifier_returns_access_token() -> None:
     """Test PassthroughTokenVerifier wraps token in AccessToken."""
@@ -237,5 +255,5 @@ async def test_passthrough_verifier_returns_access_token() -> None:
     assert result is not None
     assert result.token == "test-upstream-token"
     assert result.client_id == "upstream"
-    assert result.scopes == []
+    assert result.scopes == ZAMMAD_OAUTH_SCOPES
     assert result.expires_at is not None
