@@ -14,6 +14,9 @@ from fastmcp.server.auth.oauth_proxy import OAuthProxy
 
 logger = logging.getLogger(__name__)
 
+# Zammad's Doorkeeper only supports the "full" scope.
+ZAMMAD_OAUTH_SCOPES: list[str] = ["full"]
+
 # Port validation constants
 MIN_PORT = 1
 MAX_PORT = 65535
@@ -30,12 +33,19 @@ class PassthroughTokenVerifier(TokenVerifier):
     can forward it to the upstream API.
     """
 
+    def __init__(self) -> None:
+        # Declaring required_scopes ensures OAuthProxy advertises them AND
+        # assigns them to dynamically registered clients (DCR).  Without this,
+        # clients get an empty scope during registration and their authorization
+        # requests are rejected with "Client was not registered with scope …".
+        super().__init__(required_scopes=ZAMMAD_OAUTH_SCOPES)
+
     async def verify_token(self, token: str) -> AccessToken | None:
         """Return an AccessToken that carries the upstream token verbatim."""
         return AccessToken(
             token=token,
             client_id="upstream",
-            scopes=[],
+            scopes=ZAMMAD_OAUTH_SCOPES,
             expires_at=int(time.time()) + 3600,
         )
 
@@ -248,10 +258,10 @@ class AuthConfig:
             upstream_client_secret=self.client_secret,
             token_verifier=PassthroughTokenVerifier(),
             base_url=self.base_url,
-            # Zammad's Doorkeeper only supports the "full" scope.
-            # Advertise it so MCP clients don't request OIDC scopes
-            # (email, profile, openid) that Zammad would reject.
-            valid_scopes=["full"],
+            # Advertise Zammad's supported scopes so MCP clients don't
+            # request OIDC scopes (email, profile, openid) that Zammad
+            # would reject.
+            valid_scopes=ZAMMAD_OAUTH_SCOPES,
         )
         logger.info("Configured OAuth proxy → %s", authorize_url)
         return auth_provider
