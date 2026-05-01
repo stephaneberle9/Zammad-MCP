@@ -794,11 +794,10 @@ class ZammadMCPServer:
         Args:
             host: Deprecated. Pass host to mcp.run() instead.
             port: Deprecated. Pass port to mcp.run() instead.
+
         """
         if host is not None or port is not None:
-            logger.warning(
-                "ZammadMCPServer(host=..., port=...) is deprecated; pass host/port to mcp.run(...) instead."
-            )
+            logger.warning("ZammadMCPServer(host=..., port=...) is deprecated; pass host/port to mcp.run(...) instead.")
         self.client: ZammadClient | None = None
         # Create FastMCP with lifespan configured
         self.mcp = FastMCP("zammad_mcp", lifespan=self._create_lifespan())
@@ -2703,6 +2702,6 @@ def _configure_logging() -> None:
 
 
 def main() -> None:
-    """Main entry point for the server."""
+    """Run the MCP server."""
     configure_logging()
     mcp.run()
