@@ -2727,11 +2727,6 @@ async def health_check(request: Request) -> JSONResponse:  # noqa: ARG001
     return JSONResponse({"status": "healthy", "transport": "http"})
 
 
-def _configure_logging() -> None:
-    """Configure logging from LOG_LEVEL environment variable."""
-    configure_logging()
-
-
 def main() -> None:
     """Run the MCP server."""
     configure_logging()
