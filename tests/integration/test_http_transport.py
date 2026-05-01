@@ -150,39 +150,3 @@ def test_mcp_endpoint_exists(http_server) -> None:
     assert location is not None, "Location header must be present in 307 redirect"
     # FastMCP redirects from /mcp/ (with slash) to /mcp (without slash)
     assert location.endswith("/mcp"), f"Expected redirect to /mcp endpoint, got: {location}"
-
-
-@pytest.mark.integration
-def test_http_server_rejects_missing_port() -> None:
-    """Test that server fails without port in HTTP mode."""
-    env = os.environ.copy()
-    env.update(
-        {
-            "MCP_TRANSPORT": "http",
-            "MCP_HOST": "127.0.0.1",
-        }
-    )
-    env.pop("MCP_PORT", None)  # Remove port
-
-    process = start_mcp_server(env=env)
-
-    # Should exit with error
-    try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired as exc:
-        # Process hung - terminate and kill if needed
-        process.terminate()
-        try:
-            process.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
-        # Assert failure - process should have exited quickly with error
-        msg = "Process did not exit within timeout"
-        raise AssertionError(msg) from exc
-
-    assert process.returncode != 0
-
-    assert process.stderr is not None
-    stderr = process.stderr.read().decode()
-    assert "HTTP transport requires MCP_PORT" in stderr

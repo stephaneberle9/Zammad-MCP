@@ -191,7 +191,7 @@ def test_auth_config_validate_missing_base_url() -> None:
 def test_auth_config_validate_multiple_missing() -> None:
     """Test validation reports all missing fields."""
     config = AuthConfig(client_id="id")
-    with pytest.raises(ValueError, match="MCP_AUTH_CLIENT_SECRET.*ZAMMAD_URL.*MCP_AUTH_BASE_URL"):
+    with pytest.raises(ValueError, match=r"MCP_AUTH_CLIENT_SECRET.*ZAMMAD_URL.*MCP_AUTH_BASE_URL"):
         config.validate()
 
 
