@@ -9,6 +9,8 @@ import pytest
 # Auth env vars that must be cleared so the real .env file doesn't
 # interfere with tests that instantiate ZammadMCPServer.
 _DOTENV_VARS = (
+    # Zammad connection
+    "ZAMMAD_URL",
     # Auth vars
     "MCP_AUTH_CLIENT_ID",
     "MCP_AUTH_CLIENT_SECRET",
