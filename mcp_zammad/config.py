@@ -8,9 +8,7 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 
-from fastmcp.server.auth import TokenVerifier
-from fastmcp.server.auth.auth import AccessToken
-from fastmcp.server.auth.oauth_proxy import OAuthProxy
+from fastmcp.server.auth import AccessToken, OAuthProxy, TokenVerifier
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +40,7 @@ class PassthroughTokenVerifier(TokenVerifier):
 
     async def verify_token(self, token: str) -> AccessToken | None:
         """Return an AccessToken that carries the upstream token verbatim."""
+        # expires_at is nominal; OAuthProxy manages actual token refresh.
         return AccessToken(
             token=token,
             client_id="upstream",

@@ -41,8 +41,8 @@ def main() -> None:
     except RuntimeError as e:
         logger.error("Runtime error: %s", e)  # noqa: TRY400
         sys.exit(1)
-    except Exception as e:
-        logger.error("Internal error: %s", e, exc_info=True)
+    except Exception:
+        logger.exception("Internal error")
         sys.exit(1)
 
 
