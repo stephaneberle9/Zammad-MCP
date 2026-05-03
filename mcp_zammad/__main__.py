@@ -21,12 +21,10 @@ def main() -> None:
 
     from .server import mcp  # noqa: PLC0415
 
-    # FastMCP handles its own async loop.
-    # Host and port are already configured during server initialization.
     if config.transport == TransportType.HTTP:
-        mcp.run(transport="streamable-http")  # type: ignore[func-returns-value]
+        mcp.run(transport="http", host=config.host, port=config.port)
     else:
-        mcp.run()  # type: ignore[func-returns-value]
+        mcp.run()
 
 
 if __name__ == "__main__":
