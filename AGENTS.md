@@ -550,7 +550,7 @@ Repository-specific guidance for `basher83/Zammad-MCP`. This layer supplements t
 
 - This project is an unofficial FastMCP server for the Zammad ticket API.
 - The installed command is `mcp-zammad`, backed by `mcp_zammad.__main__:main`.
-- `mcp_zammad/server.py` owns FastMCP registration and server lifecycle; `client.py` wraps Zammad API access; `models.py` holds Pydantic request and response models; `config.py` validates transport configuration.
+- `mcp_zammad/server.py` owns FastMCP registration and server lifecycle; `client.py` wraps Zammad API access; `models.py` holds Pydantic request and response models; `config.py` validates transport configuration and builds the optional OAuth provider (`TransportConfig`, `AuthConfig`, `OAuthProxy`).
 - External systems are Zammad HTTP, environment and secret-file configuration, and MCP transports. Unit tests must use controlled doubles rather than real Zammad credentials or network access. HTTP integration tests use a fake Zammad server and a subprocess boundary.
 
 ## Tooling and validation
@@ -568,7 +568,7 @@ Repository-specific guidance for `basher83/Zammad-MCP`. This layer supplements t
 ## FastMCP contract
 
 - Import `FastMCP` from `fastmcp`, not `mcp.server.fastmcp`.
-- Supported transports are `stdio` and `http`. Stdio is the default. HTTP requires `MCP_PORT`; `MCP_HOST` defaults to `127.0.0.1`.
+- Supported transports are `stdio` and `http`. Stdio is the default. For HTTP, `MCP_PORT` defaults to `8000` and `MCP_HOST` to `127.0.0.1`; `MCP_SSL_CERTFILE`/`MCP_SSL_KEYFILE` enable HTTPS.
 - Pass HTTP host and port to `mcp.run(transport="http", host=..., port=...)`; do not pass them to `FastMCP()`.
 - Keep tool annotations accurate: distinguish read-only, write, idempotent-write, and destructive operations.
 - Register tools, resources, and prompts through the `ZammadMCPServer` setup methods. Test observable MCP behavior through public FastMCP or process boundaries; do not add new assertions against private registries.
@@ -577,6 +577,7 @@ Repository-specific guidance for `basher83/Zammad-MCP`. This layer supplements t
 
 - `ZAMMAD_URL` is required and must include the API path expected by the client.
 - Authentication supports HTTP token, OAuth2 token, or username/password. Secret-file variants are supported for token and password inputs; see `.env.example` and `mcp_zammad/client.py`.
+- Inbound OAuth (HTTP transport only) proxies to Zammad's built-in Doorkeeper provider when `MCP_AUTH_CLIENT_ID`, `MCP_AUTH_CLIENT_SECRET`, and `MCP_AUTH_BASE_URL` are set. `get_client()` then builds a per-request `ZammadClient` from the authenticated user's bearer token, and static Zammad credentials are not required.
 - TLS verification is enabled by default. `ZAMMAD_INSECURE` is an explicit escape hatch for trusted self-signed environments and must not become a silent default.
 - Preserve URL validation, base64 validation, filename path/null-byte stripping, and HTML escaping on the model fields that currently apply it. Do not describe these as comprehensive SSRF or XSS prevention without stronger evidence.
 - Never place real Zammad credentials in tests, fixtures, logs, examples, or committed environment files.
