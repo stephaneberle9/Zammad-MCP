@@ -15,6 +15,9 @@ The Zammad MCP Server is built on the Model Context Protocol (MCP) to provide AI
 └─────────────────┘     └────────┬────────┘
                                  │ MCP Protocol
                         ┌────────▼────────┐
+                        │  OAuth Proxy    │ (optional: Zammad Doorkeeper)
+                        │  (FastMCP)      │
+                        ├─────────────────┤
                         │   MCP Server    │
                         │  (FastMCP)      │
                         ├─────────────────┤
@@ -27,7 +30,7 @@ The Zammad MCP Server is built on the Model Context Protocol (MCP) to provide AI
                         │  Zammad Client  │
                         │    Wrapper      │
                         └────────┬────────┘
-                                 │ HTTP/REST
+                                 │ HTTP/REST (user's token forwarded)
                         ┌────────▼────────┐
                         │  Zammad API     │
                         │   Instance      │
@@ -49,14 +52,15 @@ The main server implementation using FastMCP framework.
 
 **Key Features:**
 
-- 16 tools for comprehensive Zammad operations
-- 3 resources with URI-based access pattern
+- 20 tools for comprehensive Zammad operations
+- 4 resources with URI-based access pattern
 - 3 pre-configured prompts for common scenarios
 - Lifespan management for proper initialization
 
 **Design Patterns:**
 
-- **Singleton Pattern**: Single Zammad client instance
+- **Singleton Pattern**: Single shared Zammad client instance (static credential mode)
+- **Per-Request Client**: When OAuth is enabled, a new `ZammadClient` is created per request using the authenticated user's Zammad bearer token
 - **Sentinel Pattern**: `_UNINITIALIZED` for type-safe state management
 - **Dependency Injection**: Shared client instance across all tools
 
@@ -142,7 +146,30 @@ BaseModel
 
 ## Authentication
 
-Supports three authentication methods with precedence:
+The server supports two authentication modes:
+
+### Mode 1: OAuth via Zammad Doorkeeper (multi-user)
+
+When `MCP_AUTH_*` env vars are configured, the server uses FastMCP's `OAuthProxy`
+to proxy the OAuth flow to Zammad's built-in Doorkeeper authorization server.
+Users authenticate through Zammad's login page (which may offer Google, GitHub,
+etc. depending on the instance's config). The resulting Zammad bearer token is
+forwarded to the API — each user acts under their own identity.
+
+```bash
+MCP_AUTH_CLIENT_ID=...                          # Zammad OAuth app client ID
+MCP_AUTH_CLIENT_SECRET=...                      # Zammad OAuth app client secret
+MCP_AUTH_BASE_URL=http://localhost:8000          # This MCP server's URL
+# OAuth endpoints (/oauth/authorize, /oauth/token) derived from ZAMMAD_URL
+```
+
+Configuration is handled by `AuthConfig` in `config.py`, which creates an
+`OAuthProxy` pointing at Zammad's endpoints and passes it to `FastMCP(auth=...)`.
+
+### Mode 2: Static Credentials (single-user / service account)
+
+When no OAuth env vars are configured, the server uses static credentials with
+the following precedence:
 
 1. **API Token** (Recommended)
 
@@ -165,17 +192,24 @@ Supports three authentication methods with precedence:
 
 ## State Management
 
-### Global Client State
+### Client Lifecycle
+
+The server manages `ZammadClient` instances through `get_client()`:
+
+- **Static credential mode**: A single shared `ZammadClient` is created during
+  server startup and reused for all requests.
+- **OAuth mode**: No client is created at startup. On each request,
+  `get_client()` retrieves the authenticated user's Zammad bearer token via
+  FastMCP's `get_access_token()` and creates a per-request `ZammadClient`
+  with that token.
 
 ```python
-_UNINITIALIZED: Final = object()
-zammad_client: ZammadClient | object = _UNINITIALIZED
-
-def get_zammad_client() -> ZammadClient:
-    """Type-safe client accessor."""
-    if zammad_client is _UNINITIALIZED:
+def get_client(self) -> ZammadClient:
+    if self.auth_config.enabled:
+        return self._get_authenticated_client()
+    if not self.client:
         raise RuntimeError("Zammad client not initialized")
-    return cast(ZammadClient, zammad_client)
+    return self.client
 ```
 
 ### Initialization Lifecycle
@@ -362,7 +396,7 @@ Consider splitting into:
 
 Enable extensions for:
 
-- Custom authentication providers
+- ~~Custom authentication providers~~ (implemented via Zammad Doorkeeper OAuth proxy)
 - Additional ticket sources
 - Workflow automation
 - Custom prompts/tools

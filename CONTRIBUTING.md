@@ -274,20 +274,25 @@ test: add coverage for error cases
 Add to `server.py` using the `@mcp.tool()` decorator:
 
 ```python
-@mcp.tool()
+@self.mcp.tool()
 def new_tool_name(param1: str, param2: int) -> ReturnType:
     """Clear description of what the tool does.
-    
+
     Args:
         param1: Description of param1
         param2: Description of param2
-        
+
     Returns:
         Description of return value
     """
-    client = get_zammad_client()
+    client = self.get_client()
     # Implementation
 ```
+
+> **Note**: `get_client()` is auth-aware. When OAuth authentication is
+> configured, it automatically creates a per-request `ZammadClient` using
+> the authenticated user's Zammad bearer token. No special handling is needed
+> in tool implementations.
 
 ### 2. New Models
 
